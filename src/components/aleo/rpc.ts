@@ -1,26 +1,26 @@
 import { JSONRPCClient } from 'json-rpc-2.0';
-import { BOUNTY_PROGRAM_ID } from '@/types';
-import { CURRENT_RPC_URL } from '@/types';
-
+import { VERICREDIT_PROGRAM_ID, CURRENT_RPC_URL } from '@/types';
 
 export const CREDITS_PROGRAM_ID = 'credits.aleo';
 
 // Create the JSON-RPC client
 export const client = getClient(CURRENT_RPC_URL);
 
+// ==========================================
+// Generic Mapping Fetchers
+// ==========================================
 
-// returns a string for address-based mappings
 export async function fetchMappingValueString(
   mappingName: string,
-  key: number
+  key: string
 ): Promise<string> {
   try {
     const result = await client.request('getMappingValue', {
-      programId: BOUNTY_PROGRAM_ID,
+      programId: VERICREDIT_PROGRAM_ID,
       mappingName,
-      key: `${key}.public`,
+      key,
     });
-    return result.value; // The address is stored as string in 'result.value'
+    return result.value; 
   } catch (error) {
     console.error(`Failed to fetch mapping ${mappingName} with key ${key}:`, error);
     throw error;
@@ -32,21 +32,17 @@ export async function fetchMappingValueRaw(
   key: string
 ): Promise<string> {
   try {
-
-    const keyString = `${key}u64`;
-
     const result = await client.request("getMappingValue", {
-      program_id: BOUNTY_PROGRAM_ID,
+      program_id: VERICREDIT_PROGRAM_ID,
       mapping_name: mappingName,
-      key: keyString,
+      key,
     });
 
     if (!result) {
       throw new Error(
-        `No result returned for mapping "${mappingName}" and key "${keyString}"`
+        `No result returned for mapping "${mappingName}" and key "${key}"`
       );
     }
-
     return result;
   } catch (error) {
     console.error(`Failed to fetch mapping "${mappingName}" with key "${key}":`, error);
@@ -54,72 +50,136 @@ export async function fetchMappingValueRaw(
   }
 }
 
+// ==========================================
+// VeriCredit Specific Mappings
+// ==========================================
 
-export async function fetchBountyStatusAndReward(bountyId: string) {
+/**
+ * Fetch the nullifier for a given address to check if a credit score is initialized.
+ */
+export async function fetchCreditScoreNullifier(address: string): Promise<string | null> {
   try {
- 
-    const keyU64 = `${bountyId}u64`;
-
-
-    const statusResult = await client.request('getMappingValue', {
-      program_id: BOUNTY_PROGRAM_ID,
-      mapping_name: 'bounty_status',
-      key: keyU64,
-    });
-
-    const rewardResult = await client.request('getMappingValue', {
-      program_id: BOUNTY_PROGRAM_ID,
-      mapping_name: 'bounty_reward',
-      key: keyU64,
-    });
-
-    return {
-      status: statusResult?.value ?? statusResult ?? null,
-      reward: rewardResult?.value ?? rewardResult ?? null,
-    };
+    return await fetchMappingValueRaw('credit_scores', address);
   } catch (error) {
-    console.error('Error fetching bounty status/reward from chain:', error);
-    throw new Error('Failed to fetch chain data');
+    return null; // Return null if not found
   }
 }
 
-export async function readBountyMappings(bountyId: string) {
-  // Fetch raw strings for all mappings
-  const creator = await fetchMappingValueRaw('bounty_creator', bountyId);
-  const payment = await fetchMappingValueRaw('bounty_payment', bountyId);
-  const status = await fetchMappingValueRaw('bounty_status', bountyId);
-
-  return {
-    creator,  
-    payment,  
-    status,   
-  };
-}
-
-export async function readProposalMappings(bountyId: number, proposalId: number) {
-  // Ensure safe arithmetic using BigInt
-  const compositeProposalId = (BigInt(bountyId) * BigInt(1_000_000) + BigInt(proposalId)).toString();
-
-  console.log("Fetching data for Composite Proposal ID:", compositeProposalId);
-
+/**
+ * Fetch an active loan request's terms hash for a given borrower address.
+ */
+export async function fetchLoanRequest(borrowerAddress: string): Promise<string | null> {
   try {
-    // Fetch all mappings related to the proposal
-    const proposalBountyId = await fetchMappingValueRaw("proposal_bounty_id", compositeProposalId);
-    const proposalProposer = await fetchMappingValueRaw("proposal_proposer", compositeProposalId);
-    const proposalStatus = await fetchMappingValueRaw("proposal_status", compositeProposalId);
-
-    return {
-      proposalBountyId,
-      proposalProposer,
-      proposalStatus,
-    };
+    return await fetchMappingValueRaw('loan_requests', borrowerAddress);
   } catch (error) {
-    console.error("Error fetching proposal mappings:", error);
-    throw error;
+    return null;
   }
 }
 
+/**
+ * Fetch the borrower address for an active loan by its loan_id (field).
+ */
+export async function fetchActiveLoan(loanId: string): Promise<string | null> {
+  try {
+    return await fetchMappingValueRaw('active_loans', loanId);
+  } catch (error) {
+    return null;
+  }
+}
 
+// ==========================================
+// VeriCredit Transitions
+// ==========================================
+
+/**
+ * 1. Initialize Credit Score
+ */
+export async function initializeCreditScore(
+  initialScore: number
+): Promise<string> {
+  const inputs = [`${initialScore}u32`];
+  
+  const result = await client.request('executeTransition', {
+    programId: VERICREDIT_PROGRAM_ID,
+    functionName: 'initialize_credit_score',
+    inputs,
+  });
+  
+  if (!result.transactionId) {
+    throw new Error('Transaction failed: No transactionId returned.');
+  }
+  return result.transactionId;
+}
+
+/**
+ * 2. Create Loan Request
+ */
+export async function createLoanRequest(
+  minAmount: number,
+  maxAmount: number,
+  minInterest: number,
+  maxInterest: number,
+  durationDays: number,
+  creditScoreRecord: string,
+  scoreProof: string
+): Promise<string> {
+  const inputs = [
+    `${minAmount}u64`,
+    `${maxAmount}u64`,
+    `${minInterest}u8`,
+    `${maxInterest}u8`,
+    `${durationDays}u16`,
+    creditScoreRecord, // Passed as a complete record string
+    scoreProof         // Passed as a field string
+  ];
+
+  const result = await client.request('executeTransition', {
+    programId: VERICREDIT_PROGRAM_ID,
+    functionName: 'create_loan_request',
+    inputs,
+  });
+
+  if (!result.transactionId) {
+    throw new Error('Transaction failed: No transactionId returned.');
+  }
+  return result.transactionId;
+}
+
+/**
+ * 3. Fund Loan
+ */
+export async function fundLoan(
+  borrowerAddress: string,
+  loanRequestRecord: string,
+  fundingAmount: number,
+  interestRate: number,
+  durationDays: number,
+  feeRecord: string
+): Promise<string> {
+  const inputs = [
+    borrowerAddress,
+    loanRequestRecord,
+    `${fundingAmount}u64`,
+    `${interestRate}u8`,
+    `${durationDays}u16`,
+    feeRecord
+  ];
+
+  const result = await client.request('executeTransition', {
+    programId: VERICREDIT_PROGRAM_ID,
+    functionName: 'fund_loan',
+    inputs,
+  });
+
+  if (!result.transactionId) {
+    throw new Error('Transaction failed: No transactionId returned.');
+  }
+  return result.transactionId;
+}
+
+// ==========================================
+// Generic Utilities
+// ==========================================
 
 /**
  * Utility to fetch program transactions
@@ -130,7 +190,7 @@ export async function getProgramTransactions(
   maxTransactions = 100
 ) {
   return client.request('aleoTransactionsForProgram', {
-    programId: BOUNTY_PROGRAM_ID,
+    programId: VERICREDIT_PROGRAM_ID,
     functionName,
     page,
     maxTransactions,
@@ -163,23 +223,12 @@ export async function transferPublic(
 
 /**
  * Transfer credits privately between two accounts.
- *
- * This function calls the on-chain "transfer_private" transition,
- * which exactly expects three inputs in the following order:
- *  - r0: Sender's credits record (credits.record)
- *  - r1: Recipient's address with a ".private" suffix (address.private)
- *  - r2: Transfer amount with a "u64.private" suffix (u64.private)
- *
- * It returns two credits records:
- *  - The first output is the recipient's updated credits record.
- *  - The second output is the sender's updated credits record.
  */
 export async function transferPrivate(
   senderRecord: string,
   recipient: string,
   amount: string
 ): Promise<{ recipientRecord: string; senderRecord: string }> {
-  // Exactly matching the expected input types:
   const inputs = [
     `${senderRecord}`,         // r0: credits.record
     `${recipient}.private`,    // r1: address.private
@@ -196,127 +245,14 @@ export async function transferPrivate(
     throw new Error('Transaction failed: No transactionId returned.');
   }
 
-  // The Aleo program returns:
-  //   result.outputs[0] -> recipient's updated credits record (r4)
-  //   result.outputs[1] -> sender's updated credits record (r5)
   return {
     recipientRecord: result.outputs[0],
     senderRecord: result.outputs[1],
   };
 }
 
-
 /**
- * 1. Post Bounty
- */
-export async function postBounty(
-  caller: string,
-  bountyId: number,
-  reward: number
-): Promise<string> {
-  const inputs = [
-    `${caller}.private`,
-    `${bountyId}.private`,
-    `${caller}.private`,
-    `${reward}.private`,
-  ];
-  const result = await client.request('executeTransition', {
-    programId: BOUNTY_PROGRAM_ID,
-    functionName: 'post_bounty',
-    inputs,
-  });
-  if (!result.transactionId) {
-    throw new Error('Transaction failed: No transactionId returned.');
-  }
-  return result.transactionId;
-}
-
-/**
- * 2. View Bounty by ID
- */
-export async function viewBountyById(
-  bountyId: number
-): Promise<{ payment: number; status: number }> {
-  const inputs = [`${bountyId}.private`];
-  const result = await client.request('executeTransition', {
-    programId: BOUNTY_PROGRAM_ID,
-    functionName: 'view_bounty_by_id',
-    inputs,
-  });
-
-  // Fetch finalized data from the mappings
-  const payment = await fetchMappingValue('bounty_output_payment', bountyId);
-  const status = await fetchMappingValue('bounty_output_status', bountyId);
-
-  return { payment, status };
-}
-
-/**
- * 3. Submit Proposal
- */
-export async function submitProposal(
-  caller: string,
-  bountyId: number,
-  proposalId: number,
-  proposer: string
-): Promise<string> {
-  const inputs = [
-    `${caller}.private`,
-    `${bountyId}.private`,
-    `${proposalId}.private`,
-    `${proposer}.private`,
-  ];
-  const result = await client.request('executeTransition', {
-    programId: BOUNTY_PROGRAM_ID,
-    functionName: 'submit_proposal',
-    inputs,
-  });
-  return result.transactionId;
-}
-
-/**
- * 4. Accept Proposal
- */
-export async function acceptProposal(
-  caller: string,
-  bountyId: number,
-  proposalId: number,
-  creator: string,
-  reward: number
-): Promise<string> {
-  const inputs = [
-    `${caller}.private`,
-    `${bountyId}.private`,
-    `${proposalId}.private`,
-    `${creator}.private`,
-    `${reward}.private`,
-  ];
-  const result = await client.request('executeTransition', {
-    programId: BOUNTY_PROGRAM_ID,
-    functionName: 'accept_proposal',
-    inputs,
-  });
-  return result.transactionId;
-}
-
-/**
- * 5. Delete Bounty
- */
-export async function deleteBounty(
-  caller: string,
-  bountyId: number
-): Promise<string> {
-  const inputs = [`${caller}.private`, `${bountyId}.private`];
-  const result = await client.request('executeTransition', {
-    programId: BOUNTY_PROGRAM_ID,
-    functionName: 'delete_bounty',
-    inputs,
-  });
-  return result.transactionId;
-}
-
-/**
- * 6. Wait for Transaction Finalization
+ * Wait for Transaction Finalization
  */
 export async function waitForTransactionToFinalize(
   transactionId: string
@@ -338,56 +274,7 @@ export async function waitForTransactionToFinalize(
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
 
-  return false; // Return false if transaction is not finalized
-}
-
-
-/**
- * 7. Transfer Payment
- */
-export async function transfer(
-  caller: string,
-  receiver: string,
-  amount: number
-): Promise<string> {
-  const inputs = [`${caller}.private`, `${receiver}.private`, `${amount}.private`];
-  const result = await client.request('executeTransition', {
-    programId: BOUNTY_PROGRAM_ID,
-    functionName: 'transfer',
-    inputs,
-  });
-  if (!result.transactionId) {
-    throw new Error('Transaction failed: No transactionId returned.');
-  }
-  return result.transactionId;
-}
-
-
-/**
- * Helper to Fetch Mapping Values
- */
-export async function fetchMappingValue(
-  mappingName: string,
-  key: string | number // Allow both string and number
-): Promise<number> {
-  try {
-    // Convert `key` to string if it's a number
-    const keyString = typeof key === 'number' ? `${key}.public` : `${key}.public`;
-
-    const result = await client.request('getMappingValue', {
-      programId: BOUNTY_PROGRAM_ID,
-      mappingName,
-      key: keyString, // Always pass as a string
-    });
-
-    return parseInt(result.value, 10); // Parse as integer
-  } catch (error) {
-    console.error(
-      `Failed to fetch mapping ${mappingName} with key ${key}:`,
-      error
-    );
-    throw error;
-  }
+  return false; 
 }
 
 /**
@@ -439,27 +326,4 @@ export async function getProgram(programId: string, apiUrl: string): Promise<str
     id: programId
   });
   return program;
-}
-
-
-//Deny a proposal
-
-export async function denyProposal(
-  caller: string,
-  bountyId: number,
-  proposalId: number
-): Promise<string> {
-  const inputs = [
-    `${caller}.private`,   
-    `${bountyId}.private`, 
-    `${proposalId}.private` 
-  ];
-    
-    const result = await client.request('executeTransition', {
-      programId: BOUNTY_PROGRAM_ID,
-      functionName: 'deny_proposal', 
-      inputs, 
-    });
-
-    return result.transactionId;
 }

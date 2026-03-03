@@ -29,10 +29,10 @@ function CustomApp({ Component, pageProps }: AppPropsWithLayout) {
   const wallets = useMemo(
     () => [
       new LeoWalletAdapter({
-        appName: 'Aleo Starter Template',
+        appName: 'VeriCredit',
       }),
       new ShieldWalletAdapter({ 
-        appName: 'Aleo Starter Template',
+        appName: 'VeriCredit',
       }),
     ],
     []

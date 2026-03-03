@@ -10,7 +10,7 @@ export class AleoProvider {
     this.account = new Account({ privateKey });
     
     // Connect to network (using Aleo testnet by default)
-    this.networkClient = new AleoNetworkClient('https://api.explorer.provable.com/v1');
+    this.networkClient = new AleoNetworkClient('https://api.explorer.provable.com/v2');
     
     // Set up record provider
     const recordProvider = new NetworkRecordProvider(this.account, this.networkClient);
@@ -21,7 +21,7 @@ export class AleoProvider {
     
     // Initialize program manager
     this.programManager = new ProgramManager(
-      'https://api.explorer.provable.com/v1',
+      'https://api.explorer.provable.com/v2',
       keyProvider,
       recordProvider
     );
@@ -37,7 +37,7 @@ export class AleoProvider {
   ) {
     try {
       const transactionId = await this.programManager.execute({
-        programId,
+        programName: programId, // <-- FIXED: Changed from 'program' to 'programName: programId'
         functionName,
         inputs,
         priorityFee: fee,

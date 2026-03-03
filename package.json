@@ -1,5 +1,5 @@
 {
-  "name": "aleo_starter_template",
+  "name": "vericredit",
   "private": true,
   "version": "0.0.1",
   "scripts": {
@@ -19,17 +19,18 @@
     "prepare": "husky install"
   },
   "dependencies": {
+    "@provablehq/aleo-types": "^0.3.0-alpha.3",
     "@provablehq/aleo-wallet-adaptor-core": "^0.3.0-alpha.3",
     "@provablehq/aleo-wallet-adaptor-leo": "^0.3.0-alpha.3",
     "@provablehq/aleo-wallet-adaptor-react": "^0.3.0-alpha.3",
     "@provablehq/aleo-wallet-adaptor-react-ui": "^0.3.0-alpha.3",
     "@provablehq/aleo-wallet-adaptor-shield": "^0.3.0-alpha.3",
-    "@provablehq/aleo-types": "^0.3.0-alpha.3",
     "@provablehq/sdk": "^0.9.15",
     "@tailwindcss/forms": "0.5.11",
     "@tailwindcss/typography": "0.5.19",
     "browserify-fs": "^1.0.0",
     "classnames": "2.5.1",
+    "crypto-browserify": "^3.12.1",
     "daisyui": "5.5.14",
     "json-rpc-2.0": "^1.6.0",
     "minimatch": "^10.1.1",
@@ -37,6 +38,7 @@
     "next-pwa": "5.6.0",
     "next-seo": "6.6.0",
     "next-themes": "0.4.6",
+    "path-browserify": "^1.0.1",
     "process": "^0.11.10",
     "react": "19.0.0",
     "react-dom": "19.0.0",

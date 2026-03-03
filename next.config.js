@@ -1,16 +1,12 @@
 /** @type {import('next').NextConfig} */
 
 const webpack = require('webpack');
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
-  runtimeCaching: require('next-pwa/cache'),
-});
+const path = require('path'); 
 require('dotenv').config();
 
 const nextConfig = {
   env: {
-    URL: process.env.URL,
+    APP_URL: process.env.URL, 
     TWITTER: process.env.TWITTER,
     DISCORD: process.env.DISCORD,
     RPC_URL: process.env.RPC_URL,
@@ -24,67 +20,42 @@ const nextConfig = {
       ignoreDuringBuilds: true,
     },
   }),
-  webpack5: true,
-  webpack: (config, options) => {
+  webpack: (config) => {
     config.ignoreWarnings = [/Failed to parse source map/];
-    const fallback = config.resolve.fallback || {};
-    Object.assign(fallback, {
+    
+    // 1. Resolve missing node modules for the browser
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
       stream: require.resolve('stream-browserify'),
-      fs: require.resolve('browserify-fs'),
-    });
-    config.resolve.fallback = fallback;
-    config.plugins = (config.plugins || []).concat([
+      fs: false,     // Replaced browserify-fs with 'false' to avoid edge-runtime crashes
+      path: false,   // Replaced path-browserify with 'false'
+      crypto: false, // Replaced crypto-browserify with 'false'
+    };
+
+    // 2. Inject global polyfills
+    config.plugins.push(
       new webpack.ProvidePlugin({
         process: 'process/browser',
         Buffer: ['buffer', 'Buffer'],
-      }),
-    ]);
-    const experiments = config.experiments || {};
-    Object.assign(experiments, {
-      asyncWebAssembly: true,
-      syncWebAssembly: true,
-      topLevelAwait: true,
-    });
-    config.experiments = experiments;
-    const alias = config.resolve.alias || {};
-    Object.assign(alias, {
-      react$: require.resolve('react'),
-    });
-    config.resolve.alias = alias;
-    
-    // Handle nextjs bug with wasm static files
-    patchWasmModuleImport(config, options.isServer);
+      })
+    );
 
-    // In next.config.js, inside your webpack function:
-    config.module.rules.push({
-      test: /\.wasm$/,
-      include: /node_modules[\\/]@demox-labs[\\/]aleo-sdk-web/,
-      type: 'javascript/auto',
-      loader: 'file-loader',
-    });
+    // 3. Enable Native Next.js WASM Support
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      topLevelAwait: true,
+      layers: true,
+    };
+
+    // 4. Correctly alias the Provable generated bindings
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'wbg': path.resolve(__dirname, 'node_modules/@provablehq/wasm/dist/testnet/index.js'),
+    };
 
     return config;
   },
 };
 
-function patchWasmModuleImport(config, isServer) {
-  config.experiments = Object.assign(config.experiments || {}, {
-      asyncWebAssembly: true,
-  });
-
-  config.optimization.moduleIds = 'named';
-
-  config.module.rules.push({
-      test: /\.wasm$/,
-      type: 'webassembly/async',
-  });
-
-  // TODO: improve this function -> track https://github.com/vercel/next.js/issues/25852
-  if (isServer) {
-      config.output.webassemblyModuleFilename = './../static/wasm/[modulehash].wasm';
-  } else {
-      config.output.webassemblyModuleFilename = 'static/wasm/[modulehash].wasm';
-  }
-}
-
-module.exports = withPWA(nextConfig);
+module.exports = nextConfig;

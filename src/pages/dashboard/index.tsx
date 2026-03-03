@@ -17,9 +17,7 @@ const DashboardPage: NextPageWithLayout = () => {
     const init = async () => {
       await initializeWasm();
       
-      // Note: In production, you should use the Leo Wallet adaptor hook (`useWallet()`) 
-      // instead of hardcoding a private key.
-      const demoKey = 'APrivateKey1zkp...';
+      const demoKey = process.env.PRIVATE_KEY!;
       const aleoProvider = new AleoProvider(demoKey);
       setProvider(aleoProvider);
     };
@@ -59,44 +57,46 @@ const DashboardPage: NextPageWithLayout = () => {
     <>
       <NextSeo title="Dashboard | VeriCredit" />
       
-      <div className="mx-auto max-w-4xl px-4 py-8 font-body">
-        <h1 className="mb-8 text-3xl font-bold text-base-content">
-          VeriCredit - Private Lending
-        </h1>
-        
-        <div className="card bg-base-200 shadow-card p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-base-content">
-            Initialize Credit Score
-          </h2>
-          
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <input
-              type="number"
-              className="input input-bordered w-full sm:max-w-xs"
-              value={creditScore}
-              onChange={(e) => setCreditScore(parseInt(e.target.value))}
-              min="300"
-              max="850"
-            />
-            <Button 
-              onClick={initializeCreditScore} 
-              isLoading={loading}
-              disabled={loading || !provider}
-              className="w-full sm:w-auto"
-            >
-              {loading ? 'Processing...' : 'Initialize Score'}
-            </Button>
-          </div>
+      <div className="min-h-[calc(100vh-4rem)] flex justify-center px-4">
+        <div className="w-full max-w-2xl font-body text-center">
+            <h1 className="mb-8 text-3xl font-bold text-base-content">
+            VeriCredit - Private Lending
+            </h1>
+            
+            <div className="card bg-base-200 shadow-card p-6 mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-base-content">
+                Initialize Credit Score
+            </h2>
+            
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <input
+                type="number"
+                className="input input-bordered w-full sm:max-w-xs"
+                value={creditScore}
+                onChange={(e) => setCreditScore(parseInt(e.target.value))}
+                min="300"
+                max="850"
+                />
+                <Button 
+                onClick={initializeCreditScore} 
+                isLoading={loading}
+                disabled={loading || !provider}
+                className="w-full sm:w-auto"
+                >
+                {loading ? 'Processing...' : 'Initialize Score'}
+                </Button>
+            </div>
+            </div>
+            
+            {result && (
+            <div className="bg-info/10 border-l-4 border-info p-5 rounded-r-md mt-4">
+                <h3 className="font-semibold text-info-content mb-2">Result:</h3>
+                <pre className="whitespace-pre-wrap break-words text-sm font-mono text-base-content overflow-auto max-h-96">
+                {result}
+                </pre>
+            </div>
+            )}
         </div>
-        
-        {result && (
-          <div className="bg-info/10 border-l-4 border-info p-5 rounded-r-md mt-4">
-            <h3 className="font-semibold text-info-content mb-2">Result:</h3>
-            <pre className="whitespace-pre-wrap break-words text-sm font-mono text-base-content overflow-auto max-h-96">
-              {result}
-            </pre>
-          </div>
-        )}
       </div>
     </>
   );
