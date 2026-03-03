@@ -1,0 +1,16 @@
+[initialize_credit_score]
+initial_score: u32 = 720u32;
+
+[create_loan_request]
+min_amount: u64 = 100u64;
+max_amount: u64 = 500u64;
+min_interest: u8 = 5u8;
+max_interest: u8 = 8u8;
+duration_days: u16 = 30u16;
+credit_score_record: CreditScore = CreditScore {
+    owner: aleo1...,
+    score_commitment: 1field,
+    history_root: 0field,
+    nullifier: 0field,
+};
+score_proof: field = 1field;
