@@ -78,10 +78,10 @@ export function Header() {
     >
       <div className="flex flex-wrap items-center justify-between px-8 py-4 sm:px-6 lg:px-8 xl:px-10 3xl:px-12">
         <div className="flex items-center space-x-2">
-          {process.env.URL && (
+          {process.env.APP_URL && (
             <a
               className="bg-base-300 bg-opacity-20 rounded-full p-2"
-              href={`${process.env.URL}`}
+              href={`${process.env.APP_URL}`}
             >
               <HomeIcon />
             </a>
