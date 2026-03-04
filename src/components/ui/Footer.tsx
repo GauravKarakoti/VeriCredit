@@ -9,12 +9,12 @@ export default function Footer() {
       <p>
         &copy; {new Date().getFullYear()} Made by{" "}
         <a
-          href="https://venomlabs.xyz"
+          href="https://github.com/GauravKarakoti"
           className="font-bold hover:underline"
           target="_blank"
           rel="noopener noreferrer"
         >
-          VenomLabs
+          Gaurav Karakoti
         </a>
       </p>
         <div className="flex items-center space-x-6">
