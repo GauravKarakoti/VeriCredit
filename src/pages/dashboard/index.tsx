@@ -5,12 +5,19 @@ import DashboardLayout from '@/layouts/dashboard/_dashboard';
 import { AleoProvider } from '@/aleo/provider';
 import { initializeWasm } from '@provablehq/sdk';
 import Button from '@/components/ui/button';
+import { useWallet } from '@provablehq/aleo-wallet-adaptor-react';
+import { TransactionOptions } from '@provablehq/aleo-types';
+import { VERICREDIT_PROGRAM_ID } from '@/types';
+import { getFeeForFunction } from '@/utils/feeCalculator';
 
 const DashboardPage: NextPageWithLayout = () => {
   const [provider, setProvider] = useState<AleoProvider | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string>('');
   const [creditScore, setCreditScore] = useState<number>(720);
+  
+  // FIX: Use 'address' and 'executeTransaction' instead of 'publicKey' and 'requestTransaction'
+  const { address, executeTransaction } = useWallet();
   
   // Initialize WASM and provider on mount
   useEffect(() => {
@@ -26,26 +33,26 @@ const DashboardPage: NextPageWithLayout = () => {
   }, []);
   
   const initializeCreditScore = async () => {
-    if (!provider) return;
-    
+    // FIX: check 'address' instead
+    if (!address) return alert("Connect wallet first");
     setLoading(true);
+    
     try {
-      const programId = 'vericredit.aleo';
-      const inputs = [`${creditScore}u32`];
+      const transaction: TransactionOptions = {
+        program: VERICREDIT_PROGRAM_ID,
+        function: 'initialize_credit_score',
+        inputs: [`${creditScore}u32`],
+        fee: getFeeForFunction('initialize_credit_score'), 
+      };
       
-      const txId = await provider.executeProgram(
-        programId,
-        'initialize_credit_score',
-        inputs
-      );
+      // FIX: Call executeTransaction which returns { transactionId: string } | undefined
+      const txResult = await executeTransaction(transaction);
       
-      setResult(`Transaction submitted: ${txId}`);
-      
-      // Wait for confirmation
-      setTimeout(async () => {
-        const tx = await provider.getTransaction(txId);
-        setResult(`Transaction confirmed:\n${JSON.stringify(tx, null, 2)}`);
-      }, 10000);
+      if (txResult?.transactionId) {
+        setResult(`Transaction submitted: ${txResult.transactionId}`);
+      } else {
+        setResult('Transaction was canceled or failed.');
+      }
     } catch (error: any) {
       setResult(`Error: ${error.message}`);
     } finally {
@@ -57,7 +64,7 @@ const DashboardPage: NextPageWithLayout = () => {
     <>
       <NextSeo title="Dashboard | VeriCredit" />
       
-      <div className="min-h-[calc(100vh-4rem)] flex justify-center px-4">
+      <div className="flex justify-center px-4">
         <div className="w-full max-w-2xl font-body text-center">
             <h1 className="mb-8 text-3xl font-bold text-base-content">
             VeriCredit - Private Lending
@@ -80,7 +87,8 @@ const DashboardPage: NextPageWithLayout = () => {
                 <Button 
                 onClick={initializeCreditScore} 
                 isLoading={loading}
-                disabled={loading || !provider}
+                // FIX: removed !provider dependency since we are using the wallet extension
+                disabled={loading}
                 className="w-full sm:w-auto"
                 >
                 {loading ? 'Processing...' : 'Initialize Score'}
