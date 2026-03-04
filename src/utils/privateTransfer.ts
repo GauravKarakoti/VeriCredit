@@ -1,7 +1,7 @@
 import { TransactionOptions } from '@provablehq/aleo-types'; 
 import { getFeeForFunction } from '@/utils/feeCalculator';
 
-export const CREDITS_PROGRAM_ID = 'credits.aleo';
+export const TOKEN_PROGRAM_ID = 'test_usdcx_stablecoin.aleo';
 export const TRANSFER_PRIVATE_FUNCTION = 'transfer_private';
 
 /**
@@ -19,28 +19,29 @@ export async function privateTransfer(
   amount: number,
   setTxStatus: (status: string | null) => void
 ): Promise<string> {
-  // Format the transfer amount (e.g., if amount = 5000, then "5000000u64.private")
-  // Note: For standard credits.aleo transfers, the inputs don't strictly require the .private 
-  // suffix in the JS wrapper unless using direct RPC, but we format the value properly.
+  // Note: Check the decimals for your specific token. 
+  // If USDCx uses 6 decimals, appending "000000u64" works. If 18, adjust accordingly.
   const transferAmountString = `${amount}000000u64`; 
   
   setTxStatus('Fetching your private records...');
-  const allRecords = await wallet.requestRecords(CREDITS_PROGRAM_ID, true);
+  // 1. Request records for the specific token program
+  const allRecords = await wallet.requestRecords(TOKEN_PROGRAM_ID, true);
   if (!allRecords || allRecords.length === 0) {
-    throw new Error('No credits records found. You may need to fund your wallet.');
+    throw new Error('No token records found. You may need to fund your wallet.');
   }
 
-  // 1. Filter private + unspent records
+  // 2. Filter using the correct property (usually 'amount' for custom tokens instead of 'microcredits')
   const privateRecords = allRecords.filter(
-    (record: any) => record.data?.microcredits && record.data.microcredits.endsWith('u64.private')
+    (record: any) => record.data?.amount && record.data.amount.endsWith('u64.private')
   );
+  
   const unspentRecords = privateRecords.filter((record: any) => record.spent === false);
 
   if (unspentRecords.length === 0) {
     throw new Error('No unspent private records available.');
   }
 
-  // 2. Find one record that can cover the transfer amount
+  // 3. Extract the value from the 'amount' string
   const extractValue = (valueStr: string): number => {
     const match = valueStr.match(/^(\d+)/);
     return match ? parseInt(match[1], 10) : 0;
@@ -48,31 +49,27 @@ export async function privateTransfer(
   const neededAmount = extractValue(transferAmountString);
 
   const transferCandidates = unspentRecords.filter((record: any) => {
-    const recordValue = extractValue(record.data.microcredits);
+    // Update to extract from record.data.amount
+    const recordValue = extractValue(record.data.amount);
     return recordValue >= neededAmount;
   });
 
   if (transferCandidates.length === 0) {
-    throw new Error('No single record can cover the required transfer amount. You may need to consolidate records.');
+    throw new Error('No single record can cover the required transfer amount.');
   }
 
   const chosenRecord = transferCandidates[0];
-  console.log('Chosen record for funding:', chosenRecord);
 
-  // 3. Create transaction inputs
   const txInputs = [
-    chosenRecord,            // r0: The record we’ll spend
-    recipientAddress,        // r1: The borrower's address receiving the funds
-    transferAmountString,    // r2: The amount
+    chosenRecord,            
+    recipientAddress,        
+    transferAmountString,    
   ];
 
-  console.log('Private transfer inputs:', txInputs);
-
   const fee = getFeeForFunction(TRANSFER_PRIVATE_FUNCTION);
-  console.log('Calculated fee (in micro credits):', fee);
 
   const transaction: TransactionOptions = {
-    program: CREDITS_PROGRAM_ID,
+    program: TOKEN_PROGRAM_ID, // <-- Update here
     function: TRANSFER_PRIVATE_FUNCTION,
     inputs: txInputs as string[], 
     fee: fee,

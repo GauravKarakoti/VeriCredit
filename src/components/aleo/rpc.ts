@@ -1,7 +1,7 @@
 import { JSONRPCClient } from 'json-rpc-2.0';
 import { VERICREDIT_PROGRAM_ID, CURRENT_RPC_URL } from '@/types';
 
-export const CREDITS_PROGRAM_ID = 'credits.aleo';
+export const TOKEN_PROGRAM_ID = 'test_usdcx_stablecoin.aleo';
 
 // Create the JSON-RPC client
 export const client = getClient(CURRENT_RPC_URL);
@@ -210,7 +210,7 @@ export async function transferPublic(
   ];
 
   const result = await client.request('executeTransition', {
-    programId: CREDITS_PROGRAM_ID,
+    programId: TOKEN_PROGRAM_ID,
     functionName: 'transfer_public',
     inputs,
   });
@@ -236,7 +236,7 @@ export async function transferPrivate(
   ];
 
   const result = await client.request('executeTransition', {
-    programId: CREDITS_PROGRAM_ID,
+    programId: TOKEN_PROGRAM_ID,
     functionName: 'transfer_private',
     inputs,
   });

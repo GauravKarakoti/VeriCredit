@@ -1,7 +1,7 @@
 import { TransactionOptions } from '@provablehq/aleo-types';
 import { getFeeForFunction } from '@/utils/feeCalculator';
 
-export const CREDITS_PROGRAM_ID = 'credits.aleo';
+export const TOKEN_PROGRAM_ID = 'test_usdcx_stablecoin.aleo';
 export const TRANSFER_PUBLIC_FUNCTION = 'transfer_public';
 
 /**
@@ -31,7 +31,7 @@ export async function publicTransfer(
   console.log('Calculated fee (in micro credits):', fee);
 
   const transaction: TransactionOptions = {
-    program: CREDITS_PROGRAM_ID,
+    program: TOKEN_PROGRAM_ID,
     function: TRANSFER_PUBLIC_FUNCTION,
     inputs: transferInput as string[],
     fee: fee,
